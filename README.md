@@ -8,9 +8,9 @@ MarketTracker is a scaled-down, production-grade trading infrastructure engine f
 
 ## Demo
 
-> 🎥 **[Watch Terminal Demo (`recording.mp4`)](recording.mp4)**
->
-> Live walkthrough of the 3-column dark trading terminal showing real-time 1 Hz PnL leaderboard updates, auto-fitting L2 orderbook ladder, imbalance signals, and simulated paper-trading execution.
+![MarketTracker Terminal Demo](recording.gif)
+
+*Live walkthrough of the 3-column dark trading terminal showing real-time 1 Hz PnL leaderboard updates, auto-fitting L2 orderbook ladder, imbalance signals, and simulated paper-trading execution.*
 
 ---
 
@@ -106,7 +106,7 @@ market-tracker/
 ├── README.md                       # System overview, headline benchmarks, architecture & runbook
 ├── docker-compose.yml              # Production ClickHouse container configuration
 ├── pyproject.toml                  # Project dependencies, Ruff lint rules, and pytest settings (Python 3.12)
-├── recording.mp4                   # Live trading terminal demo video
+├── recording.gif                   # Live trading terminal demo recording
 ├── run.py                          # Cross-platform task runner (auto-detects .venv on Windows/macOS/Linux)
 ├── config/
 │   └── clickhouse/
