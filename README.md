@@ -13,13 +13,13 @@ MarketTracker is a scaled-down, production-grade trading infrastructure engine f
 | Metric | Measured Value | Benchmark Script | Conditions / Implementation Details |
 | :--- | :--- | :--- | :--- |
 | **Ingestion Throughput** | **200,000 rows/sec** sustained | [`bench/ingest.py`](bench/ingest.py) | Bounded queue, batch flush to ClickHouse `ReplacingMergeTree`, Gorilla & DoubleDelta codecs |
-| **MTM Pass Latency (100k positions)** | **0.038 ms** (38 μs) · **2,635 M pos/s** | [`bench/mtm.py`](bench/mtm.py) | Numba `@njit(fastmath=True, parallel=True)` AVX2 SIMD `prange` (**745x faster** than pure Python) |
-| **MTM Pass Latency (1M positions)** | **1.86 ms** · **537.6 M pos/s** | [`bench/mtm.py`](bench/mtm.py) | Contiguous 1D NumPy SoA memory layout, 100% cache-line aligned |
-| **MTM Pass Latency (2M positions)** | **3.82 ms** · **523.8 M pos/s** | [`bench/mtm.py`](bench/mtm.py) | 2,000,000 live outcome positions evaluated concurrently |
-| **L2 Book Update Latency (p99)** | **0.90 μs** · **1,210,642 updates/s** | [`bench/book.py`](bench/book.py) | 1,001 fixed-tick array price levels pinned in CPU L1 cache (16 KB), `gc.freeze()` + `gc.disable()` |
+| **MTM Pass Latency (100k positions)** | **0.058 ms** (58 μs) · **1,718.2 M pos/s** | [`bench/mtm.py`](bench/mtm.py) | Numba `@njit(fastmath=True)` SoA SIMD kernel (**477.9x faster** than pure Python) |
+| **MTM Pass Latency (1M positions)** | **1.59 ms** · **627.8 M pos/s** | [`bench/mtm.py`](bench/mtm.py) | Numba `@njit(fastmath=True, parallel=True)` `prange` across contiguous 1D SoA memory |
+| **MTM Pass Latency (2M positions)** | **3.71 ms** · **538.5 M pos/s** | [`bench/mtm.py`](bench/mtm.py) | 2,000,000 live outcome positions evaluated concurrently |
+| **L2 Book Update Latency (p99)** | **0.80 μs** (p50: **0.40 μs**) · **1,271,781 updates/s** | [`bench/book.py`](bench/book.py) | 1,001 fixed-tick array price levels pinned in CPU L1 cache (16 KB), `gc.freeze()` + `gc.disable()` |
 | **Tick-to-Order Decision Latency (p99)** | **467.6 μs** (p50: **36.9 μs**) | [`bench/strategy_profile.py`](bench/strategy_profile.py) | In-process hot path: Numba depth imbalance + lookahead-bias-free smart money flow signals |
 
-*Benchmarked on AMD64 / x86_64 CPU (16 logical cores) running Python 3.12.12, Numba 0.68.1, NumPy 2.5.4.*
+*Benchmarked on Windows 11 (AMD64, 8 logical threads) running Python 3.12.12, Numba 0.68.1, NumPy 2.5.4.*
 
 ---
 
@@ -115,14 +115,14 @@ The pipeline is designed to be completely autonomous and resilient to network, e
 
 ### 2. Gap Detection & Automated REST Backfill
 - The Polymarket CLOB WebSocket provides millisecond timestamps and orderbook state hashes, but lacks monotonic sequence IDs.
-- When an interruption occurs, the `GapDetector` flags the downtime window: $[t_{\text{last\_seen}} - \epsilon, t_{\text{reconnect}}]$.
+- When an interruption occurs, the `GapDetector` flags the downtime window: $[t_{\text{last seen}} - \epsilon, t_{\text{reconnect}}]$.
 - The `RESTBackfillEngine` queries historical trades and orderbook snapshots for that exact window, channeling them through the deduplication filter before live stream ingestion resumes.
 
 ### 3. Out-of-Order Invariance via Scoped Position Replay
 - Because prediction market positions are isolated per `(wallet, outcome_token)`, trade fills arriving out of sequence (e.g. from late REST backfills) do not trigger global recomputations.
 - In-order trades execute in $O(1)$ directly in the Numba JIT kernel in $<0.2\,\mu\text{s}$.
 - Late trades are inserted into that position's chronological history log, resetting only that position's registers and replaying its trades in $<5\,\mu\text{s}$.
-- **Mathematical Invariance**: Proved by Hypothesis property tests: $\text{PnL}(\text{shuffled\_stream}) \equiv \text{PnL}(\text{sorted\_stream})$ to $10^{-7}$ precision.
+- **Mathematical Invariance**: Proved by Hypothesis property tests: $\text{PnL}(\text{shuffled stream}) \equiv \text{PnL}(\text{sorted stream})$ to $10^{-7}$ precision.
 
 ### 4. L2 Orderbook Drift Detection & Self-Healing
 - Incremental deltas dropped during network blips could permanently distort price level sizes.
@@ -254,10 +254,16 @@ market-tracker/
 
 ## 🚀 How to Run & Verify
 
-### 1. Prerequisites & Unified Runner
-- Python 3.12 (virtualenv in `.venv` or system Python)
-- Docker & Docker Compose (for ClickHouse benchmarks/chaos)
-- Node.js 20+ & npm (for rebuilding the frontend)
+### 1. Prerequisites & Setup
+- Python 3.12+ (recommended via `uv`, or `.venv` + `pip`)
+- Docker & Docker Compose (for ClickHouse storage benchmarks & chaos suite)
+- Node.js 20+ & npm (for building the React terminal frontend)
+
+Install Python dependencies into `.venv`:
+```bash
+uv sync --extra dev
+# or: python -m venv .venv && pip install -e ".[dev]"
+```
 
 All commands run cross-platform (Windows, macOS, and Linux) via [`run.py`](run.py), which automatically detects `.venv`:
 ```bash

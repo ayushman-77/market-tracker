@@ -80,7 +80,7 @@ The Polymarket public CLOB WebSocket does not emit a monotonically increasing se
 1. **Timestamp & Inactivity Thresholds:**
    The client monitors heartbeat intervals. If no frame arrives within $t_{\text{threshold}}$ (default 15s) or a socket disconnect occurs, the engine enters a degraded state.
 2. **Downtime Window Recording:**
-   Upon disconnect or gap detection, the engine records the gap window: $[t_{\text{last\_seen}} - \epsilon, t_{\text{reconnect}}]$.
+   Upon disconnect or gap detection, the engine records the gap window: $[t_{\text{last seen}} - \epsilon, t_{\text{reconnect}}]$.
 3. **Self-Healing REST Backfill:**
    The `RESTBackfillEngine` automatically queries `GET /trades` and `GET /book` for the subscribed assets over the gap interval, pushes the recovered records through the dedupe pipeline, and re-anchors the state.
 4. **Orderbook Drift Detector:**
@@ -145,7 +145,7 @@ The Python package is organized as `src/market_tracker` (using standard Python P
 ## 8. Out-of-Order Invariance & Gap Recovery Accounting
 
 ### The Problem
-In distributed market ingestion (WebSocket packet jitter, late REST backfill insertions, multi-feed interleaving), trade fills often arrive out of chronological sequence ($t_{\text{trade}} < t_{\text{last\_processed}}$). Because Average Cost (AVCO) basis calculation is path-dependent, applying a late fill naively would distort the cost basis and realized PnL of subsequent closes.
+In distributed market ingestion (WebSocket packet jitter, late REST backfill insertions, multi-feed interleaving), trade fills often arrive out of chronological sequence ($t_{\text{trade}} < t_{\text{last processed}}$). Because Average Cost (AVCO) basis calculation is path-dependent, applying a late fill naively would distort the cost basis and realized PnL of subsequent closes.
 
 ### The Solution: Scoped Position Replay
 1. **Isolated Wallet Position Scope**:
@@ -157,7 +157,7 @@ In distributed market ingestion (WebSocket packet jitter, late REST backfill ins
    - Because individual retail wallets execute an average of 5–50 trades per session, replaying only the affected position takes $<5\,\mu\text{s}$, avoiding any global state recomputation.
 4. **Shuffled Stream Invariance**:
    Validated via Hypothesis property testing:
-   $$\text{PnL}(\text{shuffled\_stream}) \equiv \text{PnL}(\text{sorted\_stream})$$
+   $$\text{PnL}(\text{shuffled stream}) \equiv \text{PnL}(\text{sorted stream})$$
    holds to $10^{-7}$ floating-point precision across arbitrary trade permutations and gap backfills.
 
 ---
@@ -197,7 +197,7 @@ We allocate two parallel contiguous 1D NumPy arrays of size $N=1{,}001$ (`float6
 
 ### Advantages:
 1. **$O(1)$ Direct Addressing**: Price maps directly to integer index:
-   $$\text{idx} = \text{round}\left(\frac{\text{price} - \text{min\_price}}{\text{tick\_size}}\right)$$
+   $$\text{idx} = \text{round}\left(\frac{\text{price} - \text{min price}}{\text{tick size}}\right)$$
    Updating a price level is a direct memory store instruction (`movsd`), taking **$<400\text{ns}$**.
 2. **100% L1 Cache Residency**: The combined $16 \text{ KB}$ price ladder stays permanently pinned inside the CPU L1 data cache ($32/48\text{ KB}$ on modern x86/ARM cores), eliminating DRAM bus traffic entirely.
 3. **$O(1)$ Amortized Best Bid/Ask Tracking**: Cached indices are updated on insertion and scanned linearly downwards/upwards on level cancellation, consuming $<10\text{ns}$ across contiguous memory.
@@ -276,7 +276,7 @@ In prediction markets with dozens of updates per second, broadcasting full L2 or
 ### 2. Stream Sequence Tracking & Client Gap Self-Healing
 Every message emitted across WebSocket streams carries a strictly monotonic sequence counter (`seq`).
 - The React client tracks `last_seq` per stream.
-- **Gap Detection**: If $seq > last\_seq + 1$, the client identifies dropped frames or socket disconnects and immediately requests a point-in-time full snapshot (`{"type": "resync", "stream": stream}`).
+- **Gap Detection**: If `seq > last_seq + 1`, the client identifies dropped frames or socket disconnects and immediately requests a point-in-time full snapshot (`{"type": "resync", "stream": stream}`).
 - Server responds with an authoritative snapshot anchored to the current `seq`, seamlessly realigning client state without polling.
 
 ### 3. Coalescence Engine (20 Hz Throttle Rate)
