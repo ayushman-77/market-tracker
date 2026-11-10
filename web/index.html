@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MarketTracker Terminal | Polymarket</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        margin: 0;
+        background-color: #0b0e14;
+        color: #e2e8f0;
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+        font-feature-settings: 'tnum' 1, 'zero' 1;
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;
+      }
+      /* Custom dense scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0b0e14;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #1e2638;
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #38bdf8;
+      }
+    </style>
+  </head>
+  <body class="bg-[#0B0E14] text-[#E2E8F0] selection:bg-sky-500 selection:text-white">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
