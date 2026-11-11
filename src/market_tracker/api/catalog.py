@@ -680,4 +680,3 @@ EVENT_CATALOG: tuple[EventSeed, ...] = (
         open_interest=2_780_000.0,
     ),
 )
-
