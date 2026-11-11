@@ -100,11 +100,13 @@ market-tracker/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                  # GitHub Actions CI (lint, format, tests, benchmarks, web build)
+├── .dockerignore                   # Excludes local caches, venv, and node_modules from Docker builds
 ├── .gitignore                      # Python, Node, ClickHouse, and profiling ignore rules
 ├── DECISIONS.md                    # In-depth engineering tradeoffs and design choices
+├── Dockerfile                      # Multi-stage build (Node 22 frontend + Python 3.12 runtime)
 ├── HARD_PROBLEM.md                 # Staff-engineer postmortem on out-of-order AVCO basis corruption
 ├── README.md                       # System overview, headline benchmarks, architecture & runbook
-├── docker-compose.yml              # Production ClickHouse container configuration
+├── docker-compose.yml              # ClickHouse + MarketTracker app container stack
 ├── pyproject.toml                  # Project dependencies, Ruff lint rules, and pytest settings (Python 3.12)
 ├── recording.gif                   # Live trading terminal demo recording
 ├── run.py                          # Cross-platform task runner (auto-detects .venv on Windows/macOS/Linux)
@@ -268,6 +270,21 @@ python run.py build-web
 python run.py demo
 ```
 *Open your browser to **`http://localhost:8000`** to access the keyboard-driven trading terminal with real-time L2 orderbook ladders, live PnL leaderboard, and paper execution panels.*
+
+### 7. Run Inside Docker (Standalone or Full Stack)
+```bash
+# Option A: Build & run MarketTracker standalone in one container (port 8000)
+python run.py docker
+# Or directly with Docker CLI:
+docker build -t market-tracker .
+docker run --rm -p 8000:8000 market-tracker
+
+# Option B: Build & launch full stack (ClickHouse + MarketTracker app)
+python run.py docker-stack
+# Or directly:
+docker compose up --build
+```
+*Once running, open **`http://localhost:8000`** in your browser.*
 
 ---
 

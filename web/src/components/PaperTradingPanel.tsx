@@ -83,7 +83,7 @@ export const PaperTradingPanel: FC<PaperTradingPanelProps> = ({
         <div className="flex justify-between items-center mb-2">
           <div className="flex items-center space-x-1.5 text-xs font-semibold text-slate-300">
             <Shield className="w-3.5 h-3.5 text-emerald-400" />
-            <span>PAPER PORTFOLIO (ZERO PRIVATE KEYS)</span>
+            <span>PAPER PORTFOLIO</span>
           </div>
           <button
             onClick={handleReset}

@@ -52,9 +52,13 @@ app.add_middleware(
 app.include_router(api_router)
 app.include_router(ws_router)
 
-# Mount web dist if built
-dist_dir = Path(__file__).resolve().parent.parent.parent.parent / "web" / "dist"
-if dist_dir.exists():
+# Mount web dist if built (supports both repo layout and packaged Docker working dir)
+_dist_candidates = [
+    Path(__file__).resolve().parent.parent.parent.parent / "web" / "dist",
+    Path.cwd() / "web" / "dist",
+]
+dist_dir = next((p for p in _dist_candidates if p.exists()), None)
+if dist_dir is not None:
     app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="static")
 
 

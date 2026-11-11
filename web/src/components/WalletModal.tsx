@@ -1,5 +1,5 @@
 import { useEffect, useState, type FC } from 'react';
-import { ExternalLink, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { WalletDrilldown } from '../types';
 
 interface WalletModalProps {
@@ -195,17 +195,8 @@ export const WalletModal: FC<WalletModalProps> = ({ wallet, onClose }) => {
         )}
 
         {/* Modal Footer */}
-        <div className="p-2 px-4 bg-[#0B0E14] border-t border-term-border text-[10px] text-slate-500 flex justify-between items-center">
+        <div className="p-2 px-4 bg-[#0B0E14] border-t border-term-border text-[10px] text-slate-500 flex items-center">
           <span>Press <kbd className="px-1 py-0.5 bg-term-card border border-term-border rounded text-slate-400">Esc</kbd> to return</span>
-          <a
-            href={`https://polygonscan.com/address/${wallet}`}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center space-x-1 text-sky-400 hover:underline"
-          >
-            <span>Verify on Polygonscan</span>
-            <ExternalLink className="w-2.5 h-2.5" />
-          </a>
         </div>
       </div>
     </div>

@@ -43,6 +43,8 @@ COMMANDS = {
     "chaos": "Run fault-injection chaos harness (drops, dups, reordering)",
     "build-web": "Install and build production React frontend bundle",
     "demo": "Launch real-time FastAPI server and terminal UI (port 8000)",
+    "docker": "Build Docker image and run standalone app container (port 8000)",
+    "docker-stack": "Build and run full stack (ClickHouse + App) via Docker Compose",
     "lint": "Run ruff code linter",
     "format": "Run ruff code formatter",
     "clean": "Stop containers and remove ClickHouse volumes",
@@ -125,6 +127,15 @@ def main():
 
     elif target == "demo":
         sys.exit(run_cmd(f'"{PYTHON}" -m market_tracker.api.app'))
+
+    elif target == "docker":
+        ret = run_cmd("docker build -t market-tracker .")
+        if ret != 0:
+            sys.exit(ret)
+        sys.exit(run_cmd("docker run --rm -p 8000:8000 --name market_tracker_app market-tracker"))
+
+    elif target == "docker-stack":
+        sys.exit(run_cmd("docker compose up --build"))
 
     elif target == "lint":
         sys.exit(run_cmd(f'"{PYTHON}" -m ruff check .'))
