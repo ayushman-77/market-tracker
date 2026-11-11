@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from market_tracker.api.catalog import CATEGORIES
 from market_tracker.api.delta_stream import stream_manager
 from market_tracker.api.state import state
 from market_tracker.common.types import Side
@@ -55,12 +56,46 @@ def get_markets():
         {
             "asset_id": m.asset_id,
             "condition_id": m.condition_id,
+            "event_id": m.event_id,
             "question": m.question,
+            "event_question": m.event_question,
             "outcome_label": m.outcome_label,
+            "candidate_name": m.candidate_name,
+            "category": m.category,
+            "slug": m.slug,
+            "paired_asset_id": m.paired_asset_id,
             "tick_size": m.tick_size,
         }
         for m in state.markets.values()
     ]
+
+
+@router.get("/api/events")
+def get_events(category: str | None = Query(default=None)):
+    events = state.get_events_payload(category=category)
+    return {
+        "categories": list(CATEGORIES),
+        "count": len(events),
+        "events": events,
+    }
+
+
+@router.get("/api/events/{event_id}")
+def get_event_detail(event_id: str):
+    if event_id not in state.events:
+        raise HTTPException(status_code=404, detail=f"Event {event_id} not found")
+    for ev in state.get_events_payload():
+        if ev["event_id"] == event_id:
+            return ev
+    raise HTTPException(status_code=404, detail=f"Event {event_id} not found")
+
+
+@router.get("/api/candles/{asset_id}")
+def get_candles(asset_id: str, tf: str = Query(default="15M")):
+    if asset_id not in state.markets:
+        raise HTTPException(status_code=404, detail=f"Market {asset_id} not found")
+    state.active_sim_asset_id = asset_id
+    return state.get_candles_payload(asset_id=asset_id, timeframe=tf)
 
 
 @router.get("/api/book/{asset_id}")
@@ -76,7 +111,7 @@ def get_orderbook(asset_id: str, depth: int = Query(default=25, ge=5, le=100)):
 
 
 @router.get("/api/leaderboard")
-def get_leaderboard(limit: int = Query(default=50, ge=5, le=100)):
+def get_leaderboard(limit: int = Query(default=100, ge=5, le=100)):
     wallets = state.pnl_engine.get_leaderboard(top_n=limit)
     return {
         "count": len(wallets),
@@ -87,26 +122,27 @@ def get_leaderboard(limit: int = Query(default=50, ge=5, le=100)):
 
 @router.get("/api/wallets/{wallet_address}")
 def get_wallet_drilldown(wallet_address: str):
-    # Retrieve positions across both outcomes
-    pos0 = state.pnl_engine.get_position(wallet_address, state.default_asset_id)
-    pos1 = state.pnl_engine.get_position(wallet_address, "tok_btc_100k_no")
+    positions = []
+    total_realized = 0.0
+    total_unrealized = 0.0
+    total_fees = 0.0
 
-    pos0_dict = asdict(pos0) if pos0 else None
-    pos1_dict = asdict(pos1) if pos1 else None
+    for asset_id in state.markets:
+        pos = state.pnl_engine.get_position(wallet_address, asset_id)
+        if pos and (
+            abs(pos.size) > 1e-9 or abs(pos.realized_pnl) > 1e-9 or abs(pos.fees_paid) > 1e-9
+        ):
+            total_realized += pos.realized_pnl
+            total_unrealized += pos.unrealized_pnl
+            total_fees += pos.fees_paid
+            positions.append(asdict(pos))
 
-    total_realized = (pos0.realized_pnl if pos0 else 0.0) + (pos1.realized_pnl if pos1 else 0.0)
-    total_unrealized = (pos0.unrealized_pnl if pos0 else 0.0) + (
-        pos1.unrealized_pnl if pos1 else 0.0
-    )
-    total_fees = (pos0.fees_paid if pos0 else 0.0) + (pos1.fees_paid if pos1 else 0.0)
     net_pnl = total_realized + total_unrealized
 
-    # PnL History curve points
     pnl_history = list(state.wallet_pnl_snapshots.get(wallet_address, []))
     if not pnl_history:
         pnl_history = [(datetime.now(UTC).timestamp(), net_pnl)]
 
-    # Recent trades
     recent_trades = [
         {
             "event_id": t.event_id,
@@ -127,7 +163,7 @@ def get_wallet_drilldown(wallet_address: str):
         "realized_pnl": round(total_realized, 2),
         "unrealized_pnl": round(total_unrealized, 2),
         "total_fees": round(total_fees, 2),
-        "positions": [p for p in (pos0_dict, pos1_dict) if p is not None],
+        "positions": positions,
         "pnl_history": [{"timestamp": t, "pnl": round(p, 2)} for t, p in pnl_history],
         "recent_trades": recent_trades,
     }
@@ -168,12 +204,10 @@ def submit_paper_order(req: OrderRequest):
     now = datetime.now(UTC)
 
     if req.price is not None:
-        # Passive limit order
         order = state.paper_broker.submit_passive_order(
             req.asset_id, side, req.price, req.size, timestamp=now.timestamp()
         )
     else:
-        # Aggressive market order
         order = state.paper_broker.execute_market_order(
             req.asset_id, side, req.size, timestamp=now.timestamp()
         )

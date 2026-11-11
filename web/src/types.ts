@@ -1,9 +1,67 @@
 export interface Market {
   asset_id: string;
   condition_id: string;
+  event_id?: string;
   question: string;
+  event_question?: string;
   outcome_label: string;
+  candidate_name?: string;
+  category?: string;
+  slug?: string;
+  paired_asset_id?: string;
   tick_size: number;
+}
+
+export interface EventCandidate {
+  name: string;
+  yes_asset_id: string;
+  no_asset_id: string;
+  yes_price: number;
+  no_price: number;
+  change_24h_pct: number;
+  volume_24h: number;
+  spread: number;
+}
+
+export interface EventMarket {
+  event_id: string;
+  condition_id: string;
+  slug: string;
+  category: string;
+  question: string;
+  oracle: string;
+  active: boolean;
+  is_multi_candidate: boolean;
+  volume_24h: number;
+  open_interest: number;
+  change_24h_pct: number;
+  primary_asset_id: string;
+  candidates: EventCandidate[];
+}
+
+export type Timeframe = '1M' | '5M' | '15M' | '1H' | '1D';
+
+export interface CandleBar {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface CandlePayload {
+  asset_id: string;
+  yes_asset_id: string;
+  no_asset_id: string;
+  outcome_label: string;
+  timeframe: Timeframe;
+  current_price: number;
+  open_24h: number;
+  change_24h_pct: number;
+  volume_24h: number;
+  open_interest: number;
+  candles: CandleBar[];
 }
 
 export interface LadderLevel {

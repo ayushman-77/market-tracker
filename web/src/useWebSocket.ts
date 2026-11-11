@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ConnectionState, LeaderboardEntry, OrderbookSnapshot, PaperStatus, TradeItem } from './types';
+import {
+  CandleBar,
+  ConnectionState,
+  LeaderboardEntry,
+  OrderbookSnapshot,
+  PaperStatus,
+  TradeItem,
+} from './types';
 
 interface UseWebSocketOptions {
   activeAssetId: string;
@@ -14,17 +21,35 @@ export function useWebSocket({ activeAssetId }: UseWebSocketOptions) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [trades, setTrades] = useState<TradeItem[]>([]);
   const [paperStatus, setPaperStatus] = useState<PaperStatus | null>(null);
+  const [liveCandle, setLiveCandle] = useState<{ asset_id: string; candle: CandleBar } | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
+  const activeAssetRef = useRef<string>(activeAssetId);
   const lastPaperFetch = useRef<number>(0);
   const seqTracker = useRef<Record<string, number>>({
     book: -1,
     leaderboard: -1,
     trades: -1,
     paper: -1,
+    candles: -1,
   });
 
-  const sendJson = useCallback((data: any) => {
+  useEffect(() => {
+    activeAssetRef.current = activeAssetId;
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      seqTracker.current.book = -1;
+      seqTracker.current.candles = -1;
+      wsRef.current.send(
+        JSON.stringify({ type: 'subscribe', stream: null, asset_id: activeAssetId })
+      );
+      fetch('/api/paper/status')
+        .then(r => r.json())
+        .then(d => setPaperStatus(d))
+        .catch(() => {});
+    }
+  }, [activeAssetId]);
+
+  const sendJson = useCallback((data: unknown) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(data));
     }
@@ -34,40 +59,40 @@ export function useWebSocket({ activeAssetId }: UseWebSocketOptions) {
     console.warn(`[MarketTracker WS] Gaps detected in ${stream} stream. Resyncing...`);
     setConnectionStatus('resyncing');
     setGapCount(prev => prev + 1);
-    sendJson({ type: 'resync', stream, asset_id: activeAssetId });
-  }, [activeAssetId, sendJson]);
+    sendJson({ type: 'resync', stream, asset_id: activeAssetRef.current });
+  }, [sendJson]);
 
   const resyncAll = useCallback(() => {
     setConnectionStatus('resyncing');
-    sendJson({ type: 'resync', stream: null, asset_id: activeAssetId });
-  }, [activeAssetId, sendJson]);
+    sendJson({ type: 'resync', stream: null, asset_id: activeAssetRef.current });
+  }, [sendJson]);
 
   useEffect(() => {
-    let reconnectTimeout: any = null;
-    let pingInterval: any = null;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+    let pingInterval: ReturnType<typeof setInterval> | null = null;
+    let isDisposed = false;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // When running with Vite proxy or directly on port 8000
     const host = window.location.host;
     const wsUrl = `${protocol}//${host}/ws`;
 
     function connect() {
+      if (isDisposed) return;
       setConnectionStatus('connecting');
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
         setConnectionStatus('connected');
-        // Initial fetch of paper status to ensure immediate availability
         fetch('/api/paper/status')
           .then(r => r.json())
           .then(d => setPaperStatus(d))
           .catch(() => {});
 
-        // Subscribe to active asset
-        ws.send(JSON.stringify({ type: 'subscribe', stream: null, asset_id: activeAssetId }));
+        ws.send(
+          JSON.stringify({ type: 'subscribe', stream: null, asset_id: activeAssetRef.current })
+        );
 
-        // Ping every 3 seconds for RTT
         pingInterval = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'ping', client_ts: performance.now() }));
@@ -85,16 +110,19 @@ export function useWebSocket({ activeAssetId }: UseWebSocketOptions) {
             return;
           }
 
-          const stream = msg.stream;
-          const seq = msg.seq;
+          const stream = msg.stream as string | undefined;
+          const seq = msg.seq as number | undefined;
 
-          // Sequence Gap Detection (Strictly Monotonic per stream)
           if (seq !== undefined && stream && msg.type !== 'snapshot') {
-            const lastSeq = seqTracker.current[stream];
+            const lastSeq = seqTracker.current[stream] ?? -1;
             if (lastSeq !== -1 && seq > lastSeq + 1) {
-              console.error(`[MarketTracker Gap] Stream ${stream} dropped frames! Expected seq=${lastSeq + 1}, got seq=${seq}`);
-              resyncStream(stream);
-              return;
+              console.error(
+                `[MarketTracker Gap] Stream ${stream} dropped frames! Expected seq=${lastSeq + 1}, got seq=${seq}`
+              );
+              if (stream !== 'candles') {
+                resyncStream(stream);
+                return;
+              }
             }
             seqTracker.current[stream] = seq;
           } else if (seq !== undefined && stream && msg.type === 'snapshot') {
@@ -102,14 +130,16 @@ export function useWebSocket({ activeAssetId }: UseWebSocketOptions) {
             setConnectionStatus('connected');
           }
 
-          // Process snapshots & deltas
           if (stream === 'book') {
             if (msg.type === 'snapshot') {
-              setOrderbook(msg.data);
+              if (!msg.asset_id || msg.asset_id === activeAssetRef.current) {
+                setOrderbook(msg.data);
+              }
             } else if (msg.type === 'delta') {
               setOrderbook((prev) => {
-                if (!prev || prev.asset_id !== msg.asset_id) return prev;
-                // Merge deltas into bids and asks
+                if (!prev || prev.asset_id !== msg.asset_id || msg.asset_id !== activeAssetRef.current) {
+                  return prev;
+                }
                 const bidMap = new Map(prev.bids.map(b => [b.price, b.size]));
                 const askMap = new Map(prev.asks.map(a => [a.price, a.size]));
 
@@ -153,11 +183,14 @@ export function useWebSocket({ activeAssetId }: UseWebSocketOptions) {
             if (msg.trades) {
               setTrades(prev => [...msg.trades, ...prev].slice(0, 100));
             }
+          } else if (stream === 'candles') {
+            if (msg.type === 'delta' && msg.candle && msg.asset_id === activeAssetRef.current) {
+              setLiveCandle({ asset_id: msg.asset_id, candle: msg.candle });
+            }
           } else if (stream === 'paper') {
             if (msg.type === 'snapshot') {
               setPaperStatus(msg.data);
             } else if (msg.type === 'delta') {
-              // Throttled refresh (at most once every 1000ms) to avoid spamming /api/paper/status
               const now = performance.now();
               if (now - lastPaperFetch.current >= 1000) {
                 lastPaperFetch.current = now;
@@ -174,8 +207,9 @@ export function useWebSocket({ activeAssetId }: UseWebSocketOptions) {
       };
 
       ws.onclose = () => {
+        if (isDisposed) return;
         setConnectionStatus('disconnected');
-        clearInterval(pingInterval);
+        if (pingInterval) clearInterval(pingInterval);
         reconnectTimeout = setTimeout(connect, 2000);
       };
 
@@ -188,13 +222,14 @@ export function useWebSocket({ activeAssetId }: UseWebSocketOptions) {
     connect();
 
     return () => {
-      clearTimeout(reconnectTimeout);
-      clearInterval(pingInterval);
+      isDisposed = true;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (pingInterval) clearInterval(pingInterval);
       if (wsRef.current) {
         wsRef.current.close();
       }
     };
-  }, [activeAssetId, resyncStream]);
+  }, [resyncStream]);
 
   return {
     connectionStatus,
@@ -204,6 +239,7 @@ export function useWebSocket({ activeAssetId }: UseWebSocketOptions) {
     leaderboard,
     trades,
     paperStatus,
+    liveCandle,
     resyncAll,
     sendJson,
   };

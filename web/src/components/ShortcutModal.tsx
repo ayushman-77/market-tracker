@@ -10,13 +10,14 @@ export const ShortcutModal: FC<ShortcutModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const shortcuts = [
-    { key: '/', desc: 'Focus wallet search bar' },
+    { key: 'm', desc: 'Switch between Markets Catalog and Chart Terminal' },
+    { key: '/', desc: 'Focus search bar (questions or wallet leaderboard)' },
     { key: 'j', desc: 'Select next wallet in leaderboard' },
     { key: 'k', desc: 'Select previous wallet in leaderboard' },
     { key: 'Enter', desc: 'Open wallet drilldown modal' },
-    { key: 'Esc', desc: 'Close open modal / clear search' },
+    { key: 'Esc', desc: 'Close modal or clear search' },
     { key: 'r', desc: 'Force resync orderbook and leaderboard snapshots' },
-    { key: '1, 2, 3', desc: 'Switch active prediction market' },
+    { key: '1, 2, 3', desc: 'Quick-switch featured prediction markets' },
     { key: 'b', desc: 'Execute paper Buy market order (100 units)' },
     { key: 's', desc: 'Execute paper Sell market order (100 units)' },
     { key: '?', desc: 'Toggle keyboard shortcuts cheat sheet' },

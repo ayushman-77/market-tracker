@@ -28,6 +28,7 @@ class DeltaStreamManager:
             "leaderboard": 0,
             "trades": 0,
             "paper": 0,
+            "candles": 0,
         }
 
         # Coalescence buffers (accumulated within each 50ms tick window)
@@ -40,6 +41,8 @@ class DeltaStreamManager:
         self._pending_trades: list[dict[str, Any]] = []
         # pending_paper_events: list of paper updates
         self._pending_paper_events: list[dict[str, Any]] = []
+        # pending_candle_updates: asset_id -> bar payload
+        self._pending_candle_updates: dict[str, dict[str, Any]] = {}
 
         self._lock = asyncio.Lock()
         self._flush_task: asyncio.Task | None = None
@@ -97,6 +100,10 @@ class DeltaStreamManager:
             }
         )
 
+    def queue_candle_update(self, asset_id: str, candle: dict[str, Any]):
+        """Coalesce latest candle update per asset."""
+        self._pending_candle_updates[asset_id] = candle
+
     async def broadcast_raw(self, payload: dict[str, Any]):
         """Broadcast JSON message to all connected clients; prune dead sockets."""
         if not self.active_connections:
@@ -136,8 +143,12 @@ class DeltaStreamManager:
                 return
 
             if action in ("subscribe", "resync"):
-                # Send immediate full snapshot with current sequence ID
-                asset_id = msg.get("asset_id", app_state.default_asset_id)
+                asset_id = msg.get("asset_id") or app_state.default_asset_id
+                if asset_id in app_state.markets:
+                    app_state.active_sim_asset_id = asset_id
+                else:
+                    asset_id = app_state.default_asset_id
+
                 book = app_state.orderbooks.get(asset_id)
 
                 if stream in ("book", None) and book:
@@ -156,7 +167,7 @@ class DeltaStreamManager:
                     )
 
                 if stream in ("leaderboard", None):
-                    top_wallets = app_state.pnl_engine.get_leaderboard(top_n=50)
+                    top_wallets = app_state.pnl_engine.get_leaderboard(top_n=100)
                     seq = self.seq_numbers["leaderboard"]
                     await websocket.send_text(
                         json.dumps(
@@ -177,7 +188,7 @@ class DeltaStreamManager:
                                 "stream": "paper",
                                 "type": "snapshot",
                                 "seq": seq,
-                                "data": app_state.get_paper_status_payload(),
+                                "data": app_state.get_paper_status_payload(asset_id),
                             }
                         )
                     )
@@ -190,12 +201,11 @@ class DeltaStreamManager:
         while self._running:
             t_start = time.perf_counter()
             try:
-                # 1. Flush coalesced book deltas
+                # 1. Flush coalesced book deltas (prioritize active sim asset)
                 if self._pending_book_deltas and self.active_connections:
                     deltas_copy = self._pending_book_deltas
                     self._pending_book_deltas = {}
 
-                    # Group by asset
                     by_asset: dict[str, list[dict[str, Any]]] = {}
                     for (asset_id, side_str, price), size in deltas_copy.items():
                         by_asset.setdefault(asset_id, []).append(
@@ -233,7 +243,7 @@ class DeltaStreamManager:
                             }
                         )
 
-                # 2. Flush leaderboard updates (throttled to 1.0s so table does not violently jitter)
+                # 2. Flush leaderboard updates (1.0s cadence across 100 active traders)
                 now_t = time.perf_counter()
                 if (
                     self._leaderboard_dirty
@@ -242,7 +252,7 @@ class DeltaStreamManager:
                 ):
                     self._last_leaderboard_flush = now_t
                     self._leaderboard_dirty = False
-                    top_wallets = app_state.pnl_engine.get_leaderboard(top_n=50)
+                    top_wallets = app_state.pnl_engine.get_leaderboard(top_n=100)
                     seq = self.next_seq("leaderboard")
                     await self.broadcast_raw(
                         {
@@ -283,6 +293,22 @@ class DeltaStreamManager:
                             "events": paper_copy,
                         }
                     )
+
+                # 5. Flush live candle bar ticks
+                if self._pending_candle_updates and self.active_connections:
+                    candles_copy = self._pending_candle_updates
+                    self._pending_candle_updates = {}
+                    for asset_id, candle in candles_copy.items():
+                        seq = self.next_seq("candles")
+                        await self.broadcast_raw(
+                            {
+                                "stream": "candles",
+                                "type": "delta",
+                                "seq": seq,
+                                "asset_id": asset_id,
+                                "candle": candle,
+                            }
+                        )
 
             except Exception as e:
                 logger.exception(f"Error in DeltaStreamManager flush loop: {e}")

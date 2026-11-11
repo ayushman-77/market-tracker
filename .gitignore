@@ -53,3 +53,8 @@ Thumbs.db
 web/node_modules/
 web/dist/
 
+# Environment & Logs
+.env
+.env.*
+*.log
+

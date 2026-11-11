@@ -139,3 +139,39 @@ def test_websocket_stream_snapshots_and_ping(client: TestClient):
         assert pong["type"] == "pong"
         assert pong["client_ts"] == 123456.78
         assert "server_ts" in pong
+
+
+def test_get_events_catalog_and_multi_candidate(client: TestClient):
+    resp = client.get("/api/events")
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert len(payload["categories"]) == 5
+    assert payload["count"] == 50
+    assert len(payload["events"]) == 50
+
+    pres = next(e for e in payload["events"] if e["event_id"] == "evt_us_pres_2028")
+    assert pres["is_multi_candidate"] is True
+    assert len(pres["candidates"]) >= 4
+    yes_sum = sum(c["yes_price"] for c in pres["candidates"])
+    assert abs(yes_sum - 1.0) <= 0.05
+    for cand in pres["candidates"]:
+        assert abs((cand["yes_price"] + cand["no_price"]) - 1.0) <= 0.01
+
+
+def test_get_candles_and_100_traders(client: TestClient):
+    resp_yes = client.get("/api/candles/tok_btc_100k_yes?tf=15M")
+    resp_no = client.get("/api/candles/tok_btc_100k_no?tf=15M")
+    assert resp_yes.status_code == 200
+    assert resp_no.status_code == 200
+    c_yes = resp_yes.json()["candles"]
+    c_no = resp_no.json()["candles"]
+    assert len(c_yes) >= 10
+    assert len(c_yes) == len(c_no)
+    assert abs((c_yes[-1]["close"] + c_no[-1]["close"]) - 1.0) <= 1e-3
+
+    resp_daily = client.get("/api/candles/tok_btc_100k_yes?tf=1D")
+    assert resp_daily.status_code == 200
+    assert len(resp_daily.json()["candles"]) >= 25
+
+    lb = client.get("/api/leaderboard?limit=100").json()
+    assert lb["count"] == 100

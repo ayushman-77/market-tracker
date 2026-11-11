@@ -5,12 +5,14 @@ import { PaperStatus } from '../types';
 interface PaperTradingPanelProps {
   status: PaperStatus | null;
   activeAssetId: string;
+  marketLabels?: Record<string, string>;
   onRefresh: () => void;
 }
 
 export const PaperTradingPanel: FC<PaperTradingPanelProps> = ({
   status,
   activeAssetId,
+  marketLabels = {},
   onRefresh,
 }) => {
   const [orderSize, setOrderSize] = useState<number>(100);
@@ -26,7 +28,7 @@ export const PaperTradingPanel: FC<PaperTradingPanelProps> = ({
           asset_id: activeAssetId,
           side,
           size: orderSize,
-          price: null, // Market order
+          price: null,
         }),
       });
       onRefresh();
@@ -79,7 +81,7 @@ export const PaperTradingPanel: FC<PaperTradingPanelProps> = ({
   return (
     <div className="flex flex-col h-full min-h-0 bg-[#0E121A] overflow-hidden font-mono text-xs select-none">
       {/* Top Banner: Equity & PnL */}
-      <div className="p-3 border-b border-term-border bg-[#0B0E14] shrink-0">
+      <div className="p-2.5 border-b border-term-border bg-[#0B0E14] shrink-0">
         <div className="flex justify-between items-center mb-2">
           <div className="flex items-center space-x-1.5 text-xs font-semibold text-slate-300">
             <Shield className="w-3.5 h-3.5 text-emerald-400" />
@@ -87,7 +89,7 @@ export const PaperTradingPanel: FC<PaperTradingPanelProps> = ({
           </div>
           <button
             onClick={handleReset}
-            className="flex items-center space-x-1 px-1.5 py-0.5 text-[10px] bg-term-card hover:bg-term-hover text-slate-400 hover:text-white border border-term-border rounded"
+            className="flex items-center space-x-1 px-1.5 py-0.5 text-[10px] bg-term-card hover:bg-term-hover text-slate-400 hover:text-white border border-term-border rounded cursor-pointer"
             title="Reset to $50,000 cash"
           >
             <RotateCcw className="w-2.5 h-2.5" />
@@ -96,29 +98,29 @@ export const PaperTradingPanel: FC<PaperTradingPanelProps> = ({
         </div>
 
         {/* Portfolio Stats Grid */}
-        <div className="grid grid-cols-4 gap-2 text-center">
-          <div className="bg-[#141A24] p-2 rounded border border-term-border">
-            <div className="text-[10px] text-slate-500 uppercase">Equity</div>
-            <div className="text-sm font-bold text-white mt-0.5">
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-1.5 text-center">
+          <div className="bg-[#141A24] p-1.5 rounded border border-term-border">
+            <div className="text-[9px] text-slate-500 uppercase">Equity</div>
+            <div className="text-xs font-bold text-white mt-0.5">
               ${equity.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </div>
           </div>
-          <div className="bg-[#141A24] p-2 rounded border border-term-border">
-            <div className="text-[10px] text-slate-500 uppercase">Net PnL</div>
-            <div className={`text-sm font-bold mt-0.5 ${pnlColor}`}>
+          <div className="bg-[#141A24] p-1.5 rounded border border-term-border">
+            <div className="text-[9px] text-slate-500 uppercase">Net PnL</div>
+            <div className={`text-xs font-bold mt-0.5 ${pnlColor}`}>
               {netPnl >= 0 ? '+' : ''}
               ${netPnl.toFixed(2)}
             </div>
           </div>
-          <div className="bg-[#141A24] p-2 rounded border border-term-border">
-            <div className="text-[10px] text-slate-500 uppercase">Available Cash</div>
-            <div className="text-sm font-semibold text-slate-300 mt-0.5">
+          <div className="bg-[#141A24] p-1.5 rounded border border-term-border">
+            <div className="text-[9px] text-slate-500 uppercase">Cash</div>
+            <div className="text-xs font-semibold text-slate-300 mt-0.5">
               ${cash.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </div>
           </div>
-          <div className="bg-[#141A24] p-2 rounded border border-term-border">
-            <div className="text-[10px] text-slate-500 uppercase">Fees Paid</div>
-            <div className="text-sm font-semibold text-slate-400 mt-0.5">
+          <div className="bg-[#141A24] p-1.5 rounded border border-term-border">
+            <div className="text-[9px] text-slate-500 uppercase">Fees Paid</div>
+            <div className="text-xs font-semibold text-slate-400 mt-0.5">
               ${totalFees.toFixed(2)}
             </div>
           </div>
@@ -126,11 +128,10 @@ export const PaperTradingPanel: FC<PaperTradingPanelProps> = ({
       </div>
 
       {/* Signals & Latency Section */}
-      <div className="p-3 border-b border-term-border grid grid-cols-[minmax(0,5fr)_minmax(0,8fr)] gap-2 bg-[#0E121A] shrink-0">
-        {/* Signal Monitor */}
+      <div className="p-2.5 border-b border-term-border grid grid-cols-1 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-2 bg-[#0E121A] shrink-0">
         <div className="bg-[#141A24] p-2 rounded border border-term-border flex flex-col justify-between gap-1">
           <div className="flex items-center justify-between gap-1 text-[10px] font-semibold text-slate-300">
-            <span className="font-sans tracking-tight whitespace-nowrap">IMBALANCE SIGNAL</span>
+            <span className="font-sans tracking-tight whitespace-nowrap">IMBALANCE</span>
             <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold shrink-0 ${
               imbalanceSignal.status === 'BULLISH'
                 ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
@@ -142,46 +143,42 @@ export const PaperTradingPanel: FC<PaperTradingPanelProps> = ({
             </span>
           </div>
           <div className="text-[10px] text-slate-400 font-sans whitespace-nowrap">
-            Imbalance: <b className="text-white font-mono">{Number(imbalanceSignal.value.toFixed(3))}</b>{' '}
-            <span className="text-slate-500">(thresh: {imbalanceSignal.threshold})</span>
+            Val: <b className="text-white font-mono">{Number(imbalanceSignal.value.toFixed(3))}</b>{' '}
+            <span className="text-slate-500">(±{imbalanceSignal.threshold})</span>
           </div>
         </div>
 
-        {/* Latency Stats */}
         <div className="bg-[#141A24] p-2 rounded border border-term-border flex flex-col justify-between gap-1">
           <div className="flex items-center justify-between gap-1 text-[10px] font-semibold text-slate-300">
             <span className="flex items-center gap-1 font-sans tracking-tight whitespace-nowrap">
               <Zap className="w-3 h-3 text-amber-400 shrink-0" />
-              TICK-TO-ORDER LATENCY
+              TICK-TO-ORDER
             </span>
             <span className="text-[9px] font-sans text-slate-500 whitespace-nowrap truncate" title={latencyStats.measurement}>
               Numba JIT
             </span>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[10px] text-slate-300">
+          <div className="flex flex-wrap items-center justify-between gap-x-1.5 gap-y-0.5 text-[10px] text-slate-300">
             <span className="whitespace-nowrap font-sans">
               p50: <b className="text-emerald-400 font-mono">{latencyStats.p50_us}&nbsp;μs</b>
             </span>
             <span className="whitespace-nowrap font-sans">
               p99: <b className="text-amber-400 font-mono">{latencyStats.p99_us}&nbsp;μs</b>
             </span>
-            <span className="whitespace-nowrap font-sans">
-              p99.9: <b className="text-slate-400 font-mono">{(latencyStats.p99_9_us / 1000).toFixed(2)}&nbsp;ms</b>
-            </span>
           </div>
         </div>
       </div>
 
       {/* Manual Interactive Paper Order Pad */}
-      <div className="p-3 border-b border-term-border bg-[#0B0E14] flex items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center space-x-2">
-          <span className="text-[11px] text-slate-400">Size (contracts):</span>
+      <div className="p-2.5 border-b border-term-border bg-[#0B0E14] space-y-2 shrink-0">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-slate-400">Size:</span>
           <div className="flex items-center space-x-1">
             {[50, 100, 250, 500].map(s => (
               <button
                 key={s}
                 onClick={() => setOrderSize(s)}
-                className={`px-1.5 py-0.5 rounded text-[10px] border ${
+                className={`px-1.5 py-0.5 rounded text-[10px] border cursor-pointer ${
                   orderSize === s ? 'bg-sky-950 text-sky-400 border-sky-600' : 'bg-term-card text-slate-400 border-term-border hover:bg-term-hover'
                 }`}
               >
@@ -191,11 +188,11 @@ export const PaperTradingPanel: FC<PaperTradingPanelProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="grid grid-cols-2 gap-2">
           <button
             disabled={isSubmitting || status.is_killed}
             onClick={() => handleOrder('BUY')}
-            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded font-bold text-xs flex items-center space-x-1 shadow-sm transition-colors"
+            className="px-2 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded font-bold text-[11px] flex items-center justify-center space-x-1 shadow-sm transition-colors cursor-pointer"
           >
             <TrendingUp className="w-3 h-3" />
             <span>BUY MARKET</span>
@@ -203,7 +200,7 @@ export const PaperTradingPanel: FC<PaperTradingPanelProps> = ({
           <button
             disabled={isSubmitting || status.is_killed}
             onClick={() => handleOrder('SELL')}
-            className="px-3 py-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded font-bold text-xs flex items-center space-x-1 shadow-sm transition-colors"
+            className="px-2 py-1.5 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded font-bold text-[11px] flex items-center justify-center space-x-1 shadow-sm transition-colors cursor-pointer"
           >
             <TrendingDown className="w-3 h-3" />
             <span>SELL MARKET</span>
@@ -212,23 +209,29 @@ export const PaperTradingPanel: FC<PaperTradingPanelProps> = ({
       </div>
 
       {/* Open Paper Positions */}
-      <div className="p-3 border-b border-term-border shrink-0">
-        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+      <div className="p-2.5 border-b border-term-border shrink-0">
+        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
           Open Positions
         </div>
         {Object.keys(positions).length === 0 ? (
           <div className="text-center py-2 text-slate-600 text-xs">No active positions</div>
         ) : (
-          <div className="space-y-1.5 max-h-32 overflow-y-auto">
+          <div className="space-y-1.5 max-h-28 overflow-y-auto">
             {Object.entries(positions).map(([asset, pos]) => (
-              <div key={asset} className="flex justify-between items-center p-2 bg-[#141A24] rounded border border-term-border text-xs">
-                <div>
-                  <span className="font-semibold text-slate-200">{asset}</span>
+              <div
+                key={asset}
+                title={asset}
+                className="flex justify-between items-center p-1.5 bg-[#141A24] rounded border border-term-border text-xs gap-2"
+              >
+                <div className="min-w-0">
+                  <div className="font-semibold text-slate-200 truncate text-[11px]">
+                    {marketLabels[asset] ?? asset}
+                  </div>
                   <div className="text-[10px] text-slate-500">
                     Size: <b className="text-white">{Number(pos.size.toFixed(4))}</b> @ ${pos.cost_basis.toFixed(3)}
                   </div>
                 </div>
-                <div className={`text-right font-semibold ${pos.unrealized_pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                <div className={`text-right font-semibold shrink-0 ${pos.unrealized_pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {pos.unrealized_pnl >= 0 ? '+' : ''}${pos.unrealized_pnl.toFixed(2)}
                 </div>
               </div>
@@ -238,10 +241,10 @@ export const PaperTradingPanel: FC<PaperTradingPanelProps> = ({
       </div>
 
       {/* Simulated Fill Execution Log */}
-      <div className="p-3 flex-1 min-h-0 flex flex-col">
-        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 flex justify-between items-center shrink-0">
-          <span>Recent Execution Log (Slippage + Passive Queue)</span>
-          <span className="text-[10px] text-slate-600">Polymarket Dynamic Fee</span>
+      <div className="p-2.5 flex-1 min-h-0 flex flex-col">
+        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex justify-between items-center shrink-0">
+          <span>Execution Log</span>
+          <span className="text-[9px] text-slate-600">Slippage + Passive Queue</span>
         </div>
 
         <div className="space-y-1 flex-1 min-h-0 overflow-y-auto divide-y divide-term-border/30">
@@ -249,7 +252,7 @@ export const PaperTradingPanel: FC<PaperTradingPanelProps> = ({
             <div className="text-center py-4 text-slate-600 text-xs">Waiting for trading signals...</div>
           ) : (
             [...recentFills].reverse().map(f => (
-              <div key={f.fill_id} className="pt-1 pb-1 flex justify-between items-center text-[11px]">
+              <div key={f.fill_id} className="pt-1 pb-1 flex justify-between items-center text-[10px]">
                 <div className="flex items-center space-x-1.5">
                   <span className={`px-1 py-0.2 rounded font-bold text-[9px] ${
                     f.side === 'BUY' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-red-950 text-red-400 border border-red-800'
@@ -263,7 +266,7 @@ export const PaperTradingPanel: FC<PaperTradingPanelProps> = ({
                     </span>
                   )}
                 </div>
-                <div className="text-right text-slate-500 text-[10px]">
+                <div className="text-right text-slate-500 text-[9px]">
                   fee: ${f.fee.toFixed(4)}
                 </div>
               </div>

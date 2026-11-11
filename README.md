@@ -6,11 +6,13 @@ MarketTracker is a scaled-down, production-grade trading infrastructure engine f
 
 ---
 
-## Demo
+## Interface
 
-![MarketTracker Terminal Demo](recording.gif)
+![Prediction Markets Catalog](screenshots/1.png)
+*Multi-domain markets explorer displaying 50 prediction questions across 5 domains with live multi-candidate and binary probabilities, search, and filters.*
 
-*Live walkthrough of the 3-column dark trading terminal showing real-time 1 Hz PnL leaderboard updates, auto-fitting L2 orderbook ladder, imbalance signals, and simulated paper-trading execution.*
+![Live Candlestick Chart and Trading Terminal](screenshots/2.png)
+*Real-time question terminal featuring an interactive candlestick and volume chart, candidate selector, L2 orderbook ladder, 100-trader PnL leaderboard, and paper execution panel.*
 
 ---
 
@@ -104,12 +106,11 @@ market-tracker/
 ├── .gitignore                      # Python, Node, ClickHouse, and profiling ignore rules
 ├── DECISIONS.md                    # In-depth engineering tradeoffs and design choices
 ├── Dockerfile                      # Multi-stage build (Node 22 frontend + Python 3.12 runtime)
-├── HARD_PROBLEM.md                 # Staff-engineer postmortem on out-of-order AVCO basis corruption
 ├── README.md                       # System overview, headline benchmarks, architecture & runbook
 ├── docker-compose.yml              # ClickHouse + MarketTracker app container stack
 ├── pyproject.toml                  # Project dependencies, Ruff lint rules, and pytest settings (Python 3.12)
-├── recording.gif                   # Live trading terminal demo recording
 ├── run.py                          # Cross-platform task runner (auto-detects .venv on Windows/macOS/Linux)
+├── screenshots/                    # Terminal UI screenshots referenced in Interface section
 ├── config/
 │   └── clickhouse/
 │       └── listen.xml              # ClickHouse server IPv4 bind override for Docker/WSL2
@@ -156,8 +157,9 @@ market-tracker/
 │       └── api/
 │           ├── __init__.py
 │           ├── app.py              # FastAPI entrypoint, CORS, static bundle serving & lifespan
+│           ├── catalog.py          # 50 prediction-market questions across 5 domains
 │           ├── delta_stream.py     # 20 Hz WebSocket coalescence & monotonic sequence streaming
-│           ├── feed.py             # Real-time market feed generator driving internal engines
+│           ├── feed.py             # 100-trader market simulator driving orderbooks, candles & PnL
 │           ├── routes.py           # REST API routes (/health, /metrics, /api/*)
 │           ├── state.py            # Thread-safe AppState container & payload serialization
 │           └── ws.py               # /ws WebSocket endpoint router
@@ -198,9 +200,11 @@ market-tracker/
         ├── types.ts                # Frontend TypeScript API & WebSocket interfaces
         ├── useWebSocket.ts         # Sequence-tracked WebSocket hook with gap resync
         └── components/
+            ├── CandlestickChart.tsx # TradingView Lightweight Charts OHLCV & volume graph
             ├── ErrorBoundary.tsx   # Render-crash fallback UI guard
-            ├── Header.tsx          # Market selector, latency metrics & WS status indicator
+            ├── Header.tsx          # Navigation views, market selector & WS status indicator
             ├── Leaderboard.tsx     # Live sorted PnL wallet leaderboard & search filter
+            ├── MarketsExplorer.tsx # 50-question 5-domain catalog with search & filters
             ├── OrderbookLadder.tsx # Auto-fitting L2 ask/bid ladder & imbalance meter
             ├── PaperTradingPanel.tsx # Portfolio stats, signals, order pad & execution log
             ├── ShortcutModal.tsx   # Keyboard shortcut cheat-sheet overlay
@@ -233,7 +237,7 @@ python run.py up
 ```
 *Starts ClickHouse on ports `8123` (HTTP) and `9000` (Native TCP), automatically verifying health and applying `src/market_tracker/store/schema.sql`.*
 
-### 3. Run Test Suite (32 Unit, Smoke & Property Tests)
+### 3. Run Test Suite (34 Unit, Smoke & Property Tests)
 ```bash
 python run.py test
 ```
@@ -294,7 +298,8 @@ The trading terminal is designed for high-velocity quant workflows:
 
 | Key | Action |
 | :---: | :--- |
-| **`/`** | Focus wallet address search bar |
+| **`m`** | Toggle between Markets Catalog and Chart Terminal |
+| **`/`** | Focus search bar (questions or wallet leaderboard) |
 | **`j` / `k`** | Navigate down / up through the live PnL leaderboard |
 | **`Enter`** | Open full wallet drilldown modal (positions, PnL curve, recent fills) |
 | **`Esc`** | Close open modal or blur search |
@@ -307,7 +312,6 @@ The trading terminal is designed for high-velocity quant workflows:
 ---
 
 ## 📖 Key Documentation
-- [`HARD_PROBLEM.md`](HARD_PROBLEM.md) - Staff-engineer postmortem on path-dependent AVCO basis corruption under distributed out-of-order streams
 - [`DECISIONS.md`](DECISIONS.md) - Technical decisions, tradeoffs, and architectural justifications (13 sections)
 - [`docs/API_NOTES.md`](docs/API_NOTES.md) - Official Polymarket CLOB, Gamma, and Polygon contract documentation
 - [`bench/results/mtm.md`](bench/results/mtm.md) - Mark-to-market benchmark ladder report
